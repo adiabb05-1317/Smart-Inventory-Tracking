@@ -2,9 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import aiohttp
+import os
+from dotenv import load_dotenv
 from src.db.db_manager import DBManager
 from src.routers import products, analytics
 from src.services.cache_service import CacheService
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 @asynccontextmanager
@@ -16,15 +21,9 @@ async def lifespan(app: FastAPI):
     # Startup: Initialize database manager and aiohttp session
     print("Starting up application...")
     
-    # Initialize database manager
-    db_manager = DBManager(min_conn=2, max_conn=10)
-    db_manager.initialize_pool(
-        host="localhost",
-        port=5432,
-        database="inventory_db",
-        user="kubo_user",
-        password="password"
-    )
+    # Initialize database manager (uses environment variables)
+    db_manager = DBManager()
+    db_manager.initialize_pool()
     app.state.db_manager = db_manager
     print("Database connection pool initialized")
     
@@ -33,8 +32,9 @@ async def lifespan(app: FastAPI):
     print("HTTP client session initialized")
     
     # Initialize cache service for analytics
-    app.state.cache = CacheService(default_ttl_seconds=300)  # 5 minutes TTL
-    print("Cache service initialized")
+    cache_ttl = int(os.getenv("CACHE_TTL_SECONDS", "300"))
+    app.state.cache = CacheService(default_ttl_seconds=cache_ttl)
+    print(f"Cache service initialized (TTL: {cache_ttl}s)")
     
     yield
     
@@ -53,10 +53,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configure CORS to allow all origins
+# Configure CORS
+cors_origins = os.getenv("CORS_ALLOW_ORIGINS", "*")
+allow_origins = cors_origins.split(",") if cors_origins != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -86,5 +89,10 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    
+    api_host = os.getenv("API_HOST", "0.0.0.0")
+    api_port = int(os.getenv("API_PORT", "8000"))
+    api_reload = os.getenv("API_RELOAD", "true").lower() == "true"
+    
+    uvicorn.run("main:app", host=api_host, port=api_port, reload=api_reload)
 

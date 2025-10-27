@@ -49,7 +49,41 @@ Smart-Inventory-Tracking/
 
 ## Setup Instructions
 
-### 1. Start PostgreSQL Database
+### 1. Configure Environment Variables
+
+Copy the example environment file and customize as needed:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your preferred configuration:
+
+```bash
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=inventory_db
+DB_USER=kubo_user
+DB_PASSWORD=password
+DB_MIN_CONNECTIONS=2
+DB_MAX_CONNECTIONS=10
+
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8000
+API_RELOAD=true
+
+# Cache Configuration (TTL in seconds)
+CACHE_TTL_SECONDS=300
+
+# CORS Configuration (comma-separated origins, or * for all)
+CORS_ALLOW_ORIGINS=*
+```
+
+**Note:** The `.env` file is git-ignored for security. Never commit credentials to version control.
+
+### 2. Start PostgreSQL Database
 
 ```bash
 docker-compose up -d
@@ -61,7 +95,7 @@ This will start a PostgreSQL container with:
 - Database: `inventory_db`
 - Port: `5432`
 
-### 2. Run Database Migrations
+### 3. Run Database Migrations
 
 Option 1 - Using the provided script:
 
@@ -75,7 +109,7 @@ Option 2 - Manual execution:
 docker exec -i inventory_db psql -U kubo_user -d inventory_db < src/db/migrations.sql
 ```
 
-### 3. Install Dependencies
+### 4. Install Dependencies
 
 Using uv package manager:
 
@@ -89,7 +123,7 @@ Or using pip:
 pip install -e .
 ```
 
-### 4. Run the Application
+### 5. Run the Application
 
 ```bash
 python main.py

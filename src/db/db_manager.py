@@ -1,36 +1,46 @@
 import psycopg2
 from psycopg2 import pool
 from typing import Any, Optional, List, Tuple
+import os
 
 
 class DBManager:
     """Database manager with connection pooling for PostgreSQL."""
     
-    def __init__(self, min_conn: int = 1, max_conn: int = 10):
-        self.connection_pool: Optional[pool.SimpleConnectionPool] = None
-        self.min_conn = min_conn
-        self.max_conn = max_conn
+    def __init__(self, min_conn: Optional[int] = None, max_conn: Optional[int] = None):
+        self.connection_pool: Optional[pool.ThreadedConnectionPool] = None
+        self.min_conn = min_conn or int(os.getenv("DB_MIN_CONNECTIONS", "2"))
+        self.max_conn = max_conn or int(os.getenv("DB_MAX_CONNECTIONS", "10"))
     
     def initialize_pool(
         self,
-        host: str = "localhost",
-        port: int = 5432,
-        database: str = "inventory_db",
-        user: str = "kubo_user",
-        password: str = "password"
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        database: Optional[str] = None,
+        user: Optional[str] = None,
+        password: Optional[str] = None
     ) -> None:
-        """Initialize the connection pool."""
+        """
+        Initialize the connection pool.
+        Parameters default to environment variables if not provided.
+        """
+        db_host = host or os.getenv("DB_HOST", "localhost")
+        db_port = port or int(os.getenv("DB_PORT", "5432"))
+        db_name = database or os.getenv("DB_NAME", "inventory_db")
+        db_user = user or os.getenv("DB_USER", "kubo_user")
+        db_password = password or os.getenv("DB_PASSWORD", "password")
+        
         try:
-            self.connection_pool = psycopg2.pool.SimpleConnectionPool(
+            self.connection_pool = psycopg2.pool.ThreadedConnectionPool(
                 self.min_conn,
                 self.max_conn,
-                host=host,
-                port=port,
-                database=database,
-                user=user,
-                password=password
+                host=db_host,
+                port=db_port,
+                database=db_name,
+                user=db_user,
+                password=db_password
             )
-            print(f"Connection pool created successfully")
+            print(f"Connection pool created successfully (host={db_host}, database={db_name})")
         except (Exception, psycopg2.Error) as error:
             print(f"Error while connecting to PostgreSQL: {error}")
             raise
