@@ -49,7 +49,13 @@ This will start a PostgreSQL container with:
 
 ### 2. Run Database Migrations
 
-Connect to the database and execute the migrations:
+Option 1 - Using the provided script:
+
+```bash
+./run_migrations.sh
+```
+
+Option 2 - Manual execution:
 
 ```bash
 docker exec -i inventory_db psql -U kubo_user -d inventory_db < src/db/migrations.sql
