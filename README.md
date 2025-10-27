@@ -4,12 +4,25 @@ A FastAPI-based inventory management system for electronic stores with PostgreSQ
 
 ## Features
 
+### Core Features
 - Complete CRUD operations for product management
 - Low stock monitoring and alerts
 - Product restocking functionality
 - Connection pooling for optimal database performance
 - Swagger UI documentation
 - CORS enabled for cross-origin requests
+
+### Advanced Features
+- **Sales Analytics**: Track sales trends, revenue, and top performers
+- **Demand Forecasting**: Predict stockouts using 7-day moving average
+- **Inventory Turnover Analysis**: Identify slow-moving products
+- **Restock Urgency Scoring**: Prioritize restocking based on demand patterns
+- **Bulk Operations**: Upload and restock multiple products at once
+- **Sales Transaction Recording**: Track sales history with stock validation
+- **Advanced Filtering**: Filter products by category, price range, and stock status
+- **In-Memory Caching**: 5-minute cache for analytics endpoints
+- **Business Logic Layer**: Separate service layer for maintainability
+- **Unit Testing**: Comprehensive pytest test suite
 
 ## Prerequisites
 
@@ -105,36 +118,43 @@ Once the application is running, visit:
 
 ### Products
 
-- `GET /products` - Get all products
-- `GET /products?low_stock=true` - Get products with low stock
+- `GET /products` - Get all products with filtering and sorting
+  - Query params: `category`, `price_min`, `price_max`, `in_stock`, `sort_by`, `order`
 - `GET /products/low-stock` - Get products below reorder level
 - `GET /products/{id}` - Get a specific product
 - `POST /products` - Create a new product
 - `PUT /products/{id}` - Update a product
 - `DELETE /products/{id}` - Delete a product
 - `POST /products/{id}/restock` - Add stock to a product
+- `POST /products/bulk-upload` - Bulk upload multiple products
+- `PUT /products/bulk-restock` - Bulk restock multiple products
+- `POST /products/sales` - Record a sales transaction
+
+### Analytics
+
+- `GET /analytics/sales-trends?period=7d` - Get sales trends (7d, 30d, 90d)
+- `GET /analytics/demand-forecast/{id}` - Forecast demand for a product
+- `GET /analytics/inventory-turnover?category=X` - Calculate turnover ratio
+- `GET /analytics/top-performers?limit=5` - Get top products by revenue
+- `GET /analytics/restock-urgency` - Get prioritized restock recommendations
 
 ## Example API Calls
 
-### Get All Products
+### Product Operations
+
+#### Get All Products with Filtering
 
 ```bash
-curl -X GET "http://localhost:8000/products"
+curl -X GET "http://localhost:8000/products?category=Smartphones&price_max=1000&sort_by=price&order=asc"
 ```
 
-### Get Low Stock Products
+#### Get Low Stock Products
 
 ```bash
 curl -X GET "http://localhost:8000/products/low-stock"
 ```
 
-### Get Single Product
-
-```bash
-curl -X GET "http://localhost:8000/products/1"
-```
-
-### Create New Product
+#### Create New Product
 
 ```bash
 curl -X POST "http://localhost:8000/products" \
@@ -144,11 +164,13 @@ curl -X POST "http://localhost:8000/products" \
     "category": "Audio",
     "price": 249.99,
     "stock_quantity": 35,
-    "reorder_level": 20
+    "reorder_level": 20,
+    "supplier": "Apple Inc.",
+    "warranty_months": 12
   }'
 ```
 
-### Update Product
+#### Update Product
 
 ```bash
 curl -X PUT "http://localhost:8000/products/1" \
@@ -159,20 +181,97 @@ curl -X PUT "http://localhost:8000/products/1" \
   }'
 ```
 
-### Restock Product
+#### Bulk Upload Products
 
 ```bash
-curl -X POST "http://localhost:8000/products/1/restock" \
+curl -X POST "http://localhost:8000/products/bulk-upload" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "name": "Google Pixel 8",
+      "category": "Smartphones",
+      "price": 699.99,
+      "stock_quantity": 25,
+      "reorder_level": 15,
+      "supplier": "Google LLC",
+      "warranty_months": 24
+    },
+    {
+      "name": "Dell XPS 15",
+      "category": "Laptops",
+      "price": 1899.99,
+      "stock_quantity": 10,
+      "reorder_level": 5,
+      "supplier": "Dell Technologies",
+      "warranty_months": 12
+    }
+  ]'
+```
+
+#### Bulk Restock Products
+
+```bash
+curl -X PUT "http://localhost:8000/products/bulk-restock" \
   -H "Content-Type: application/json" \
   -d '{
-    "quantity": 50
+    "items": [
+      {"product_id": 1, "quantity": 50},
+      {"product_id": 2, "quantity": 30},
+      {"product_id": 3, "quantity": 20}
+    ]
   }'
 ```
 
-### Delete Product
+#### Record a Sale
 
 ```bash
-curl -X DELETE "http://localhost:8000/products/1"
+curl -X POST "http://localhost:8000/products/sales" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "product_id": 1,
+    "quantity_sold": 5,
+    "sale_price": 999.99
+  }'
+```
+
+### Analytics Operations
+
+#### Get Sales Trends
+
+```bash
+# 7-day trends
+curl -X GET "http://localhost:8000/analytics/sales-trends?period=7d"
+
+# 30-day trends
+curl -X GET "http://localhost:8000/analytics/sales-trends?period=30d"
+```
+
+#### Get Demand Forecast
+
+```bash
+curl -X GET "http://localhost:8000/analytics/demand-forecast/1"
+```
+
+#### Get Inventory Turnover
+
+```bash
+# All categories
+curl -X GET "http://localhost:8000/analytics/inventory-turnover"
+
+# Specific category
+curl -X GET "http://localhost:8000/analytics/inventory-turnover?category=Smartphones"
+```
+
+#### Get Top Performers
+
+```bash
+curl -X GET "http://localhost:8000/analytics/top-performers?limit=10"
+```
+
+#### Get Restock Urgency
+
+```bash
+curl -X GET "http://localhost:8000/analytics/restock-urgency"
 ```
 
 ## Database Schema
@@ -187,15 +286,94 @@ curl -X DELETE "http://localhost:8000/products/1"
 | price          | DECIMAL      | Product price (>= 0)                |
 | stock_quantity | INTEGER      | Current stock quantity (>= 0)       |
 | reorder_level  | INTEGER      | Minimum stock before reorder (>= 0) |
+| supplier       | VARCHAR(100) | Supplier name                       |
+| warranty_months| INTEGER      | Warranty period in months           |
 | last_restocked | TIMESTAMP    | Last restock timestamp              |
 | created_at     | TIMESTAMP    | Creation timestamp                  |
 | updated_at     | TIMESTAMP    | Last update timestamp               |
 
+### Sales History Table
+
+| Column        | Type      | Description                    |
+|--------------|-----------|--------------------------------|
+| id           | SERIAL    | Primary key                    |
+| product_id   | INTEGER   | Foreign key to products        |
+| quantity_sold| INTEGER   | Quantity sold (> 0)            |
+| sale_price   | DECIMAL   | Price per unit at sale time    |
+| sale_date    | TIMESTAMP | When the sale occurred         |
+| created_at   | TIMESTAMP | Record creation timestamp      |
+
 ### Indexes
 
+**Products:**
 - `idx_products_name` on `name`
 - `idx_products_category` on `category`
 - `idx_products_stock_quantity` on `stock_quantity`
+- `idx_products_price` on `price`
+
+**Sales History:**
+- `idx_sales_product_id` on `product_id`
+- `idx_sales_date` on `sale_date`
+
+## Business Logic & Forecasting
+
+### Demand Forecasting Formula
+
+The system uses a **7-day moving average** for demand forecasting:
+
+```
+avg_daily_sales = total_sales_last_7_days / 7
+estimated_days_until_stockout = current_stock / avg_daily_sales
+recommended_reorder_quantity = max((14 * avg_daily_sales) - current_stock, reorder_level)
+```
+
+**Strategy**: Maintain 14 days of inventory based on recent sales patterns.
+
+### Inventory Turnover Calculation
+
+```
+turnover_ratio = total_units_sold_30d / current_stock_quantity
+```
+
+**Interpretation:**
+- `turnover_ratio > 1.0`: Fast-moving product
+- `turnover_ratio < 1.0`: Slow-moving product (flags for review)
+
+### Restock Urgency Scoring
+
+```
+urgency_score = (reorder_level - current_stock) / avg_daily_sales
+```
+
+**Action Levels:**
+- **CRITICAL**: Out of stock OR < 2 days until stockout
+- **HIGH**: Stock < 50% of reorder level OR < 5 days until stockout
+- **MEDIUM**: Below reorder level but not critical
+
+## Testing
+
+### Run Unit Tests
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ -v --cov=src --cov-report=html
+
+# Run specific test file
+pytest tests/test_products.py -v
+
+# Run specific test
+pytest tests/test_analytics.py::test_demand_forecast_accuracy -v
+```
+
+### Test Coverage
+
+The test suite includes:
+- **Product Service Tests**: CRUD operations, bulk operations, sales recording
+- **Analytics Service Tests**: Sales trends, forecasting, turnover, urgency scoring
+- **Edge Cases**: Insufficient stock, non-existent products, zero sales scenarios
 
 ## Development
 
@@ -331,10 +509,46 @@ docker-compose down -v
 
 - **FastAPI** - Modern web framework for building APIs
 - **PostgreSQL** - Relational database
-- **psycopg2** - PostgreSQL adapter for Python
+- **psycopg2** - PostgreSQL adapter for Python with connection pooling
 - **Pydantic** - Data validation using Python type hints
 - **aiohttp** - Asynchronous HTTP client/server
 - **uvicorn** - ASGI server implementation
+- **pytest** - Testing framework with coverage support
+
+## Architecture
+
+### Project Structure
+
+```
+Smart-Inventory-Tracking/
+├── main.py                          # FastAPI app with lifespan management
+├── src/
+│   ├── db/
+│   │   ├── db_manager.py           # Connection pooling & database operations
+│   │   └── migrations.sql          # Schema definitions & sample data
+│   ├── services/
+│   │   ├── product_service.py      # Product business logic
+│   │   ├── analytics_service.py    # Analytics & forecasting logic
+│   │   └── cache_service.py        # In-memory caching service
+│   └── routers/
+│       ├── products.py             # Product API endpoints
+│       └── analytics.py            # Analytics API endpoints
+├── tests/
+│   ├── test_products.py            # Product service unit tests
+│   └── test_analytics.py           # Analytics service unit tests
+├── docker-compose.yml              # PostgreSQL container config
+├── pyproject.toml                  # Dependencies (uv/pip)
+└── README.md
+```
+
+### Design Principles
+
+1. **Separation of Concerns**: Business logic in services, API routing separate
+2. **Connection Pooling**: Efficient database connection management
+3. **Caching Strategy**: 5-minute TTL for analytics, cleared on sales
+4. **Validation**: Pydantic models for request/response validation
+5. **Error Handling**: Proper HTTP status codes and error messages
+6. **Testing**: Comprehensive unit tests with mocked dependencies
 
 ## License
 
