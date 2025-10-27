@@ -5,6 +5,10 @@ from src.services.analytics_service import AnalyticsService
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
+# =============================================================================
+# SPECIFIC ENDPOINTS (static paths - MUST come before parameterized routes)
+# =============================================================================
+
 @router.get("/sales-trends", summary="Get sales trends for specified period")
 async def get_sales_trends(
     request: Request,
@@ -79,54 +83,6 @@ async def get_sales_trends(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error calculating sales trends: {str(e)}"
-        )
-
-
-@router.get("/demand-forecast/{product_id}", summary="Forecast demand for a product")
-async def forecast_demand(product_id: int, request: Request):
-    """
-    Forecast demand using 7-day moving average and calculate reorder recommendations.
-    
-    **Parameters:**
-    - **product_id**: ID of the product to forecast
-    
-    **Returns:**
-    - product_id: Product identifier
-    - product_name: Product name
-    - current_stock: Current stock quantity
-    - reorder_level: Configured reorder level
-    - avg_daily_sales: Average daily sales (7-day moving average)
-    - estimated_days_until_stockout: Estimated days until stock runs out
-    - recommended_reorder_quantity: Suggested quantity to order
-    - forecast_period: Forecasting method used
-    
-    **Example Response:**
-    ```json
-    {
-        "product_id": 1,
-        "product_name": "iPhone 15 Pro",
-        "current_stock": 45,
-        "reorder_level": 15,
-        "avg_daily_sales": 5.71,
-        "estimated_days_until_stockout": 7.9,
-        "recommended_reorder_quantity": 0,
-        "forecast_period": "7 days moving average"
-    }
-    ```
-    """
-    try:
-        analytics_service = AnalyticsService(request.app.state.db_manager)
-        forecast = analytics_service.forecast_demand(product_id)
-        return forecast
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error forecasting demand: {str(e)}"
         )
 
 
@@ -309,3 +265,54 @@ async def get_restock_urgency(request: Request):
             detail=f"Error calculating restock urgency: {str(e)}"
         )
 
+
+# =============================================================================
+# PARAMETERIZED ENDPOINTS (dynamic paths - MUST come after specific routes)
+# =============================================================================
+
+@router.get("/demand-forecast/{product_id}", summary="Forecast demand for a product")
+async def forecast_demand(product_id: int, request: Request):
+    """
+    Forecast demand using 7-day moving average and calculate reorder recommendations.
+    
+    **Parameters:**
+    - **product_id**: ID of the product to forecast
+    
+    **Returns:**
+    - product_id: Product identifier
+    - product_name: Product name
+    - current_stock: Current stock quantity
+    - reorder_level: Configured reorder level
+    - avg_daily_sales: Average daily sales (7-day moving average)
+    - estimated_days_until_stockout: Estimated days until stock runs out
+    - recommended_reorder_quantity: Suggested quantity to order
+    - forecast_period: Forecasting method used
+    
+    **Example Response:**
+    ```json
+    {
+        "product_id": 1,
+        "product_name": "iPhone 15 Pro",
+        "current_stock": 45,
+        "reorder_level": 15,
+        "avg_daily_sales": 5.71,
+        "estimated_days_until_stockout": 7.9,
+        "recommended_reorder_quantity": 0,
+        "forecast_period": "7 days moving average"
+    }
+    ```
+    """
+    try:
+        analytics_service = AnalyticsService(request.app.state.db_manager)
+        forecast = analytics_service.forecast_demand(product_id)
+        return forecast
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error forecasting demand: {str(e)}"
+        )
