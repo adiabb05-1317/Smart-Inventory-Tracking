@@ -90,10 +90,12 @@ docker-compose up -d
 ```
 
 This will start a PostgreSQL container with:
-- Username: `kubo_user`
-- Password: `password`
-- Database: `inventory_db`
+- Username: `kubo_user` (default, customizable via `DB_USER` in `.env`)
+- Password: `password` (default, customizable via `DB_PASSWORD` in `.env`)
+- Database: `inventory_db` (default, customizable via `DB_NAME` in `.env`)
 - Port: `5432`
+
+**Note:** The default credentials work for everyone running this project locally. Docker Compose creates an isolated containerized PostgreSQL instance, so these credentials are not tied to your system's PostgreSQL installation (if any). Users can customize these values by setting `DB_USER`, `DB_PASSWORD`, and `DB_NAME` in their `.env` file before running `docker-compose up`.
 
 ### 3. Run Database Migrations
 

@@ -5,9 +5,9 @@ services:
     image: postgres:15-alpine
     container_name: inventory_db
     environment:
-      POSTGRES_USER: kubo_user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: inventory_db
+      POSTGRES_USER: ${DB_USER:-kubo_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-inventory_db}
     ports:
       - "5432:5432"
     volumes:
