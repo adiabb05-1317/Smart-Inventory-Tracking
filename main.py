@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import aiohttp
 from src.db.db_manager import DBManager
-from src.routers import products
+from src.routers import products, analytics
 
 
 @asynccontextmanager
@@ -59,6 +59,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(products.router)
+app.include_router(analytics.router)
 
 
 @app.get("/", tags=["root"])
