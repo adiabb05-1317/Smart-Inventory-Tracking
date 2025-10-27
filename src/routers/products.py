@@ -32,6 +32,10 @@ def row_to_product(row) -> ProductResponse:
     )
 
 
+# =============================================================================
+# ROOT ENDPOINTS (no path parameters)
+# =============================================================================
+
 @router.get("", response_model=List[ProductResponse], summary="Get all products with filtering")
 async def get_products(
     request: Request,
@@ -96,67 +100,6 @@ async def get_products(
         )
 
 
-@router.get("/low-stock", response_model=List[ProductResponse], summary="Get low stock products")
-async def get_low_stock_products(request: Request):
-    """
-    Get all products that are below their reorder level.
-    Returns products sorted by stock quantity (lowest first).
-    """
-    db_manager = request.app.state.db_manager
-    
-    try:
-        query = """
-            SELECT id, name, category, price, stock_quantity, reorder_level, 
-                   last_restocked, created_at, updated_at, supplier, warranty_months
-            FROM products
-            WHERE stock_quantity < reorder_level
-            ORDER BY stock_quantity ASC
-        """
-        
-        rows = db_manager.fetch_all(query)
-        return [row_to_product(row) for row in rows]
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database error: {str(e)}"
-        )
-
-
-@router.get("/{product_id}", response_model=ProductResponse, summary="Get product by ID")
-async def get_product(product_id: int, request: Request):
-    """
-    Get a specific product by ID.
-    
-    - **product_id**: The ID of the product to retrieve
-    """
-    db_manager = request.app.state.db_manager
-    
-    try:
-        query = """
-            SELECT id, name, category, price, stock_quantity, reorder_level, 
-                   last_restocked, created_at, updated_at, supplier, warranty_months
-            FROM products
-            WHERE id = %s
-        """
-        
-        row = db_manager.fetch_one(query, (product_id,))
-        
-        if not row:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product with id {product_id} not found"
-            )
-        
-        return row_to_product(row)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database error: {str(e)}"
-        )
-
-
 @router.post("", response_model=ProductResponse, status_code=status.HTTP_201_CREATED, summary="Create new product")
 async def create_product(product: ProductCreate, request: Request):
     """
@@ -198,6 +141,235 @@ async def create_product(product: ProductCreate, request: Request):
             )
         
         return row_to_product(row)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}"
+        )
+
+
+# =============================================================================
+# SPECIFIC ENDPOINTS (static paths - MUST come before parameterized routes)
+# =============================================================================
+
+@router.get("/low-stock", response_model=List[ProductResponse], summary="Get low stock products")
+async def get_low_stock_products(request: Request):
+    """
+    Get all products that are below their reorder level.
+    Returns products sorted by stock quantity (lowest first).
+    """
+    db_manager = request.app.state.db_manager
+    
+    try:
+        query = """
+            SELECT id, name, category, price, stock_quantity, reorder_level, 
+                   last_restocked, created_at, updated_at, supplier, warranty_months
+            FROM products
+            WHERE stock_quantity < reorder_level
+            ORDER BY stock_quantity ASC
+        """
+        
+        rows = db_manager.fetch_all(query)
+        return [row_to_product(row) for row in rows]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}"
+        )
+
+
+@router.post("/bulk-upload", status_code=status.HTTP_201_CREATED, tags=["Products", "Bulk Operations"], summary="Bulk upload products")
+async def bulk_upload_products(products: List[ProductCreate], request: Request):
+    """
+    Bulk upload multiple products at once.
+    
+    Validates each product and inserts all valid products.
+    Returns a report of successes and failures.
+    
+    **Request Body:**
+    Array of product objects
+    
+    **Example:**
+    ```json
+    [
+        {
+            "name": "AirPods Pro 2",
+            "category": "Audio",
+            "price": 249.99,
+            "stock_quantity": 35,
+            "reorder_level": 20,
+            "supplier": "Apple Inc.",
+            "warranty_months": 12
+        },
+        {
+            "name": "Google Pixel 8",
+            "category": "Smartphones",
+            "price": 699.99,
+            "stock_quantity": 25,
+            "reorder_level": 15,
+            "supplier": "Google LLC",
+            "warranty_months": 24
+        }
+    ]
+    ```
+    
+    **Response:**
+    ```json
+    {
+        "created_count": 2,
+        "failed_count": 0,
+        "failures": []
+    }
+    ```
+    """
+    try:
+        product_service = ProductService(request.app.state.db_manager)
+        products_data = [product.dict() for product in products]
+        result = product_service.bulk_create_products(products_data)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error during bulk upload: {str(e)}"
+        )
+
+
+@router.put("/bulk-restock", tags=["Products", "Bulk Operations"], summary="Bulk restock products")
+async def bulk_restock_products(restock_request: BulkRestockRequest, request: Request):
+    """
+    Bulk restock multiple products at once.
+    
+    Updates stock quantities and last_restocked timestamp for each product.
+    
+    **Request Body:**
+    ```json
+    {
+        "items": [
+            {"product_id": 1, "quantity": 50},
+            {"product_id": 2, "quantity": 30},
+            {"product_id": 3, "quantity": 20}
+        ]
+    }
+    ```
+    
+    **Response:**
+    ```json
+    {
+        "updated_count": 3,
+        "errors": []
+    }
+    ```
+    """
+    try:
+        product_service = ProductService(request.app.state.db_manager)
+        restock_data = [item.dict() for item in restock_request.items]
+        result = product_service.bulk_restock_products(restock_data)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error during bulk restock: {str(e)}"
+        )
+
+
+@router.post("/sales", status_code=status.HTTP_201_CREATED, summary="Record a sale")
+async def record_sale(sale: SaleRequest, request: Request):
+    """
+    Record a sales transaction.
+    
+    - Validates sufficient stock availability
+    - Records sale in sales_history table
+    - Reduces product stock quantity
+    - Clears analytics cache to reflect new data
+    - Returns updated stock information
+    
+    **Request Body:**
+    ```json
+    {
+        "product_id": 1,
+        "quantity_sold": 5,
+        "sale_price": 999.99
+    }
+    ```
+    
+    **Response:**
+    ```json
+    {
+        "sale_id": 42,
+        "product_name": "iPhone 15 Pro",
+        "quantity_sold": 5,
+        "remaining_stock": 40
+    }
+    ```
+    
+    **Errors:**
+    - 404: Product not found
+    - 400: Insufficient stock
+    """
+    try:
+        product_service = ProductService(request.app.state.db_manager)
+        result = product_service.record_sale(
+            sale.product_id,
+            sale.quantity_sold,
+            sale.sale_price
+        )
+        
+        # Clear analytics cache since sales data has changed
+        request.app.state.cache.clear(pattern="sales_trends")
+        request.app.state.cache.clear(pattern="top_performers")
+        
+        return result
+    except ValueError as e:
+        error_msg = str(e)
+        if "not found" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_msg
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
+            )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error recording sale: {str(e)}"
+        )
+
+
+# =============================================================================
+# PARAMETERIZED ENDPOINTS (dynamic paths - MUST come after specific routes)
+# =============================================================================
+
+@router.get("/{product_id}", response_model=ProductResponse, summary="Get product by ID")
+async def get_product(product_id: int, request: Request):
+    """
+    Get a specific product by ID.
+    
+    - **product_id**: The ID of the product to retrieve
+    """
+    db_manager = request.app.state.db_manager
+    
+    try:
+        query = """
+            SELECT id, name, category, price, stock_quantity, reorder_level, 
+                   last_restocked, created_at, updated_at, supplier, warranty_months
+            FROM products
+            WHERE id = %s
+        """
+        
+        row = db_manager.fetch_one(query, (product_id,))
+        
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Product with id {product_id} not found"
+            )
+        
+        return row_to_product(row)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -371,166 +543,3 @@ async def restock_product(product_id: int, restock: RestockRequest, request: Req
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database error: {str(e)}"
         )
-
-
-# Bulk Operations and Sales Endpoints
-
-@router.post("/bulk-upload", status_code=status.HTTP_201_CREATED, tags=["Products", "Bulk Operations"], summary="Bulk upload products")
-async def bulk_upload_products(products: List[ProductCreate], request: Request):
-    """
-    Bulk upload multiple products at once.
-    
-    Validates each product and inserts all valid products.
-    Returns a report of successes and failures.
-    
-    **Request Body:**
-    Array of product objects
-    
-    **Example:**
-    ```json
-    [
-        {
-            "name": "AirPods Pro 2",
-            "category": "Audio",
-            "price": 249.99,
-            "stock_quantity": 35,
-            "reorder_level": 20,
-            "supplier": "Apple Inc.",
-            "warranty_months": 12
-        },
-        {
-            "name": "Google Pixel 8",
-            "category": "Smartphones",
-            "price": 699.99,
-            "stock_quantity": 25,
-            "reorder_level": 15,
-            "supplier": "Google LLC",
-            "warranty_months": 24
-        }
-    ]
-    ```
-    
-    **Response:**
-    ```json
-    {
-        "created_count": 2,
-        "failed_count": 0,
-        "failures": []
-    }
-    ```
-    """
-    try:
-        product_service = ProductService(request.app.state.db_manager)
-        products_data = [product.dict() for product in products]
-        result = product_service.bulk_create_products(products_data)
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error during bulk upload: {str(e)}"
-        )
-
-
-@router.put("/bulk-restock", tags=["Products", "Bulk Operations"], summary="Bulk restock products")
-async def bulk_restock_products(restock_request: BulkRestockRequest, request: Request):
-    """
-    Bulk restock multiple products at once.
-    
-    Updates stock quantities and last_restocked timestamp for each product.
-    
-    **Request Body:**
-    ```json
-    {
-        "items": [
-            {"product_id": 1, "quantity": 50},
-            {"product_id": 2, "quantity": 30},
-            {"product_id": 3, "quantity": 20}
-        ]
-    }
-    ```
-    
-    **Response:**
-    ```json
-    {
-        "updated_count": 3,
-        "errors": []
-    }
-    ```
-    """
-    try:
-        product_service = ProductService(request.app.state.db_manager)
-        restock_data = [item.dict() for item in restock_request.items]
-        result = product_service.bulk_restock_products(restock_data)
-        return result
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error during bulk restock: {str(e)}"
-        )
-
-
-@router.post("/sales", status_code=status.HTTP_201_CREATED, summary="Record a sale")
-async def record_sale(sale: SaleRequest, request: Request):
-    """
-    Record a sales transaction.
-    
-    - Validates sufficient stock availability
-    - Records sale in sales_history table
-    - Reduces product stock quantity
-    - Clears analytics cache to reflect new data
-    - Returns updated stock information
-    
-    **Request Body:**
-    ```json
-    {
-        "product_id": 1,
-        "quantity_sold": 5,
-        "sale_price": 999.99
-    }
-    ```
-    
-    **Response:**
-    ```json
-    {
-        "sale_id": 42,
-        "product_name": "iPhone 15 Pro",
-        "quantity_sold": 5,
-        "remaining_stock": 40
-    }
-    ```
-    
-    **Errors:**
-    - 404: Product not found
-    - 400: Insufficient stock
-    """
-    try:
-        product_service = ProductService(request.app.state.db_manager)
-        result = product_service.record_sale(
-            sale.product_id,
-            sale.quantity_sold,
-            sale.sale_price
-        )
-        
-        # Clear analytics cache since sales data has changed
-        request.app.state.cache.clear(pattern="sales_trends")
-        request.app.state.cache.clear(pattern="top_performers")
-        
-        return result
-    except ValueError as e:
-        error_msg = str(e)
-        if "not found" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=error_msg
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_msg
-            )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error recording sale: {str(e)}"
-        )
-
