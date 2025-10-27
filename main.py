@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import aiohttp
 from src.db.db_manager import DBManager
 from src.routers import products, analytics
+from src.services.cache_service import CacheService
 
 
 @asynccontextmanager
@@ -30,6 +31,10 @@ async def lifespan(app: FastAPI):
     # Initialize aiohttp ClientSession
     app.state.http_client = aiohttp.ClientSession()
     print("HTTP client session initialized")
+    
+    # Initialize cache service for analytics
+    app.state.cache = CacheService(default_ttl_seconds=300)  # 5 minutes TTL
+    print("Cache service initialized")
     
     yield
     

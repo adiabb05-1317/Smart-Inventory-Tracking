@@ -13,6 +13,8 @@ async def get_sales_trends(
     """
     Calculate sales trends including total revenue, units sold, and top products.
     
+    **Note:** Results are cached for 5 minutes for performance.
+    
     **Parameters:**
     - **period**: Time period for analysis (7d, 30d, or 90d)
     
@@ -56,11 +58,22 @@ async def get_sales_trends(
             detail=f"Invalid period. Must be one of: {', '.join(valid_periods.keys())}"
         )
     
+    # Check cache first
+    cache_key = f"sales_trends_{period}"
+    cached_result = request.app.state.cache.get(cache_key)
+    
+    if cached_result is not None:
+        return cached_result
+    
     period_days = valid_periods[period]
     
     try:
         analytics_service = AnalyticsService(request.app.state.db_manager)
         trends = analytics_service.calculate_sales_trends(period_days)
+        
+        # Cache the result
+        request.app.state.cache.set(cache_key, trends)
+        
         return trends
     except Exception as e:
         raise HTTPException(
@@ -175,6 +188,8 @@ async def get_top_performers(
     """
     Get top performing products by revenue in the last 30 days.
     
+    **Note:** Results are cached for 5 minutes for performance.
+    
     **Parameters:**
     - **limit**: Number of top products to return (1-50)
     
@@ -209,9 +224,20 @@ async def get_top_performers(
     ]
     ```
     """
+    # Check cache first
+    cache_key = f"top_performers_{limit}"
+    cached_result = request.app.state.cache.get(cache_key)
+    
+    if cached_result is not None:
+        return cached_result
+    
     try:
         analytics_service = AnalyticsService(request.app.state.db_manager)
         top_performers = analytics_service.get_top_performers(limit)
+        
+        # Cache the result
+        request.app.state.cache.set(cache_key, top_performers)
+        
         return top_performers
     except Exception as e:
         raise HTTPException(

@@ -596,6 +596,7 @@ async def record_sale(sale: SaleRequest, request: Request):
     - Validates sufficient stock availability
     - Records sale in sales_history table
     - Reduces product stock quantity
+    - Clears analytics cache to reflect new data
     - Returns updated stock information
     
     **Request Body:**
@@ -628,6 +629,11 @@ async def record_sale(sale: SaleRequest, request: Request):
             sale.quantity_sold,
             sale.sale_price
         )
+        
+        # Clear analytics cache since sales data has changed
+        request.app.state.cache.clear(pattern="sales_trends")
+        request.app.state.cache.clear(pattern="top_performers")
+        
         return result
     except ValueError as e:
         error_msg = str(e)
