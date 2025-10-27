@@ -556,10 +556,15 @@ docker-compose down -v
 ```
 Smart-Inventory-Tracking/
 ├── main.py                          # FastAPI app with lifespan management
+├── .env.example                     # Environment variables template
 ├── src/
 │   ├── db/
 │   │   ├── db_manager.py           # Connection pooling & database operations
 │   │   └── migrations.sql          # Schema definitions & sample data
+│   ├── models/
+│   │   ├── product.py              # Product Pydantic models
+│   │   ├── sale.py                 # Sales Pydantic models
+│   │   └── restock.py              # Restock Pydantic models
 │   ├── services/
 │   │   ├── product_service.py      # Product business logic
 │   │   ├── analytics_service.py    # Analytics & forecasting logic
