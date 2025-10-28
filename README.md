@@ -26,47 +26,6 @@ A complete full-stack inventory management system with AI-powered insights, buil
                        └─────────────────┘
 ```
 
-## 🎯 Core Features
-
-### **Inventory Management**
-- ✅ **Complete CRUD Operations** - Create, Read, Update, Delete products with modal forms
-- ✅ **Advanced Filtering & Search** - Real-time search by name, category, price range
-- ✅ **Low Stock Monitoring** - Automatic alerts and visual indicators
-- ✅ **Bulk Operations** - Upload multiple products, bulk restock functionality
-- ✅ **Product Restocking** - Individual and bulk restock with timestamp tracking
-- ✅ **Sales Transaction Recording** - Track sales history with stock validation
-
-### **Analytics & Insights**
-- ✅ **Sales Trends Analysis** - 7d, 30d, 90d period analysis with revenue metrics
-- ✅ **Top Performers Dashboard** - Best-selling products identification
-- ✅ **Category Performance** - Revenue breakdown by product categories
-- ✅ **Demand Forecasting** - Predict stockouts using 7-day moving average
-- ✅ **Inventory Turnover** - Identify slow-moving products and efficiency metrics
-- ✅ **Restock Urgency Scoring** - Prioritized recommendations based on demand patterns
-
-### **AI-Powered Assistant** 🤖
-- ✅ **Intelligent Chat Interface** - Natural language inventory queries
-- ✅ **Cerebras Llama 3.1-8B Integration** - Fastest inference LLM for real-time responses
-- ✅ **4 Specialized AI Tools** - Inventory, Sales, Restock, and Calculator tools
-- ✅ **Context-Aware Responses** - Understands inventory-specific terminology
-- ✅ **Organized Output** - Structured responses with emojis and formatting
-- ✅ **Auto-scroll Chat** - Smooth scrolling to latest messages
-
-### **User Experience**
-- ✅ **Responsive Design** - Mobile-first approach with Tailwind CSS
-- ✅ **Real-time Updates** - Live data synchronization with Zustand state management
-- ✅ **Professional UI** - Clean, modern interface with intuitive navigation
-- ✅ **Interactive Dashboard** - KPI cards, charts, and quick action buttons
-- ✅ **Modal Forms** - Seamless add/edit product experience
-
-### **Technical Excellence**
-- ✅ **Connection Pooling** - Optimal PostgreSQL connection management
-- ✅ **In-Memory Caching** - 5-minute TTL cache for analytics performance
-- ✅ **Business Logic Layer** - Separated service layer for maintainability
-- ✅ **RESTful API Design** - Well-structured endpoints with proper HTTP methods
-- ✅ **Error Handling** - Comprehensive error handling and user feedback
-- ✅ **Unit Testing** - pytest test suite with coverage reporting
-
 ## Prerequisites
 
 ### **Backend Requirements**
