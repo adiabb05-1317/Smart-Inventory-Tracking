@@ -5,13 +5,16 @@ from ..services.ai_agent import InventoryAgent
 router = APIRouter(prefix="/ai", tags=["AI Assistant"])
 
 # Initialize agent lazily
-agent = None
+_agent = None
 
-def get_agent(db_manager):
-    global agent
-    if agent is None:
-        agent = InventoryAgent(db_manager)
-    return agent
+
+def get_agent(req: Request):
+    """Get or create AI agent instance"""
+    global _agent
+    if _agent is None:
+        db_manager = req.app.state.db_manager
+        _agent = InventoryAgent(db_manager)
+    return _agent
 
 
 class ChatRequest(BaseModel):
@@ -27,8 +30,8 @@ class ChatResponse(BaseModel):
 async def chat(request: ChatRequest, req: Request):
     """Chat with AI inventory assistant"""
     try:
-        agent_instance = get_agent(req.app.state.db_manager)
-        result = agent_instance.chat(request.message)
+        agent = get_agent(req)
+        result = agent.chat(request.message)
         return ChatResponse(
             response=result.get("output", ""),
             tools_used=result.get("intermediate_steps", [])

@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from src.db.db_manager import DBManager
 from src.routers import products, analytics, ai_chat
 from src.services.cache_service import CacheService
+from src.services.ai_agent import InventoryAgent
 
 # Load environment variables from .env file
 load_dotenv()
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
     db_manager = DBManager()
     db_manager.initialize_pool()
     app.state.db_manager = db_manager
+
     print("Database connection pool initialized")
     
     # Initialize aiohttp ClientSession
@@ -35,6 +37,9 @@ async def lifespan(app: FastAPI):
     cache_ttl = int(os.getenv("CACHE_TTL_SECONDS", "300"))
     app.state.cache = CacheService(default_ttl_seconds=cache_ttl)
     print(f"Cache service initialized (TTL: {cache_ttl}s)")
+    
+    # Note: AI agent is initialized lazily in ai_chat router
+    print("AI agent will be initialized on first use")
     
     yield
     
