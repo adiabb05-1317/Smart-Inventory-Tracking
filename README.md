@@ -10,7 +10,7 @@ A complete full-stack inventory management system with AI-powered insights, buil
 │                 │    │                 │    │                 │
 │ • Zustand Store │    │ • LangChain AI  │    │ • Products      │
 │ • Tailwind CSS  │    │ • Cerebras LLM  │    │ • Sales History │
-│ • Axios HTTP    │    │ • Custom Tools   │    │ • Analytics     │
+│ • Axios HTTP    │    │ • SQL Executor   │    │ • Analytics     │
 │ • Recharts      │    │ • Connection Pool│    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                               │
@@ -19,10 +19,7 @@ A complete full-stack inventory management system with AI-powered insights, buil
                        │   AI Assistant   │
                        │   (LangChain)    │
                        │                 │
-                       │ • Inventory Tool │
-                       │ • Sales Analyzer │
-                       │ • Restock Advisor│
-                       │ • Calculator     │
+                       │ • SQL Executor   │
                        └─────────────────┘
 ```
 
@@ -64,11 +61,8 @@ Smart-Inventory-Tracking/
 │   │   │   ├── product_service.py    # Product business logic
 │   │   │   ├── analytics_service.py  # Analytics & forecasting logic
 │   │   │   ├── ai_agent.py           # AI agent with LangChain & Cerebras
-│   │   │   ├── ai_tools/             # Custom AI tools
-│   │   │   │   ├── inventory_query_tool.py
-│   │   │   │   ├── sales_analyzer_tool.py
-│   │   │   │   ├── restock_advisor_tool.py
-│   │   │   │   └── calculator_tool.py
+│   │   │   ├── ai_tools/             # AI tools (single SQL tool)
+│   │   │   │   └── sql_executor_tool.py
 │   │   │   └── cache_service.py      # In-memory caching service
 │   │   └── models/
 │   │       └── __init__.py
@@ -244,6 +238,52 @@ Once the application is running, visit:
 - `GET /analytics/inventory-turnover?category=X` - Calculate turnover ratio
 - `GET /analytics/top-performers?limit=5` - Get top products by revenue
 - `GET /analytics/restock-urgency` - Get prioritized restock recommendations
+
+## 🤖 AI Assistant (Schema + Single SQL Tool)
+
+The AI chat now uses a single tool: `sql_executor`. The LLM sees the database schema in the prompt and generates read‑only SQL to answer any question. This keeps responses natural and fast while remaining safe (SELECT‑only).
+
+Available tables:
+- `products (id, name, category, price, stock_quantity, reorder_level, supplier, warranty_months, last_restocked, created_at, updated_at)`
+- `sales_history (id, product_id, quantity_sold, sale_price, sale_date, created_at)`
+
+How it works:
+- LLM reasons (ReAct) → decides to use `sql_executor` → generates SQL → tool executes query via pooled DB connection → LLM summarizes results.
+- Only SELECT statements are allowed; mutating SQL is rejected for safety.
+
+Example questions the AI can answer:
+- “Top 5 best‑selling products in the last 30 days?”
+- “Daily revenue for the last 7 days.”
+- “Low‑stock items and their reorder thresholds.”
+- “Products in ‘Smartphones’ under $900.”
+
+Example queries the tool may run:
+```sql
+-- Top performers
+SELECT p.name, SUM(s.quantity_sold) AS units_sold, SUM(s.sale_price * s.quantity_sold) AS revenue
+FROM products p
+JOIN sales_history s ON p.id = s.product_id
+GROUP BY p.id, p.name
+ORDER BY units_sold DESC
+LIMIT 5;
+
+-- Daily revenue (last 7 days)
+SELECT DATE(sale_date) AS day, SUM(quantity_sold * sale_price) AS revenue
+FROM sales_history
+WHERE sale_date >= CURRENT_DATE - INTERVAL '7 days'
+GROUP BY DATE(sale_date)
+ORDER BY day DESC;
+
+-- Low stock
+SELECT name, stock_quantity, reorder_level
+FROM products
+WHERE stock_quantity < reorder_level
+ORDER BY stock_quantity ASC;
+```
+
+Setup notes:
+- Set `CEREBRAS_API_KEY` in `.env` for the AI chat.
+- Start PostgreSQL via Docker Compose, run migrations, then start the backend and frontend.
 
 ## Example API Calls
 

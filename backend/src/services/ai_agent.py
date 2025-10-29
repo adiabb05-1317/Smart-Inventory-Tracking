@@ -2,10 +2,8 @@ import os
 from langchain_cerebras import ChatCerebras
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.prompts import PromptTemplate
-from langchain import hub
 from dotenv import load_dotenv
 from .ai_tools.sql_executor_tool import SQLExecutorTool
-from .ai_tools.calculator_tool import CalculatorTool
 from ..db.db_manager import DBManager
 
 # Load environment variables
@@ -32,19 +30,15 @@ class InventoryAgent:
             max_tokens=1000
         )
         
-        # Initialize tools
+        # Initialize single SQL tool
         sql_tool = SQLExecutorTool()
         sql_tool.db_manager = self.db_manager
-        
-        self.tools = [
-            sql_tool,
-            CalculatorTool()
-        ]
+        self.tools = [sql_tool]
         
         # Use ReAct prompt template
-        template = """You are an inventory assistant for an electronics store. Answer questions using the available tools.
+        template = """You are an inventory assistant for an electronics store. Answer questions using the available tool.
 
-You have access to these tools:
+You have access to this tool:
 {tools}
 
 Use this format:
@@ -84,14 +78,6 @@ Observation: Found 2 result(s): 1. Samsung Galaxy S24 | 61199.32 2. MacBook Pro 
 Thought: I now know the final answer
 Final Answer: The most profitable products are: 1. Samsung Galaxy S24 with $61,199.32 in revenue, 2. MacBook Pro 16" with $29,999.88 in revenue. I recommend stocking these high-revenue items.
 
-Question: Calculate 100 * 50
-Thought: I need to perform a calculation
-Action: calculator
-Action Input: 100 * 50
-Observation: Result: 5000
-Thought: I now know the final answer
-Final Answer: The result is 5,000.
-
 Begin!
 
 Question: {input}
@@ -103,8 +89,8 @@ Thought: {agent_scratchpad}"""
         self.executor = AgentExecutor(
             agent=self.agent,
             tools=self.tools,
-            verbose=True,
-            max_iterations=10,  # Increased to allow for SQL retries
+            verbose=False,
+            max_iterations=6,
             handle_parsing_errors=True,
             return_intermediate_steps=False,
             early_stopping_method="generate"  # Generate final answer even if max iterations reached
