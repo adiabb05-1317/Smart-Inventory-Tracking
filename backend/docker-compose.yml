@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: inventory_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-kubo_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-inventory_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-kubo_user} -d ${DB_NAME:-inventory_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: inventory_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-inventory_db}
+      DB_USER: ${DB_USER:-kubo_user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      API_RELOAD: "false"
+      CACHE_TTL_SECONDS: 300
+      CORS_ALLOW_ORIGINS: "*"
+      CEREBRAS_API_KEY: ${CEREBRAS_API_KEY}
+    ports:
+      - "8000:8000"
+
+volumes:
+  postgres_data:
+
+
