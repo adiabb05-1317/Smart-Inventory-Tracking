@@ -1,8 +1,72 @@
+Here's the updated README with Jenkins CI/CD and complete AWS architecture:
+
+---
+
 # 🚀 Smart Inventory Tracking System
 
-A complete full-stack inventory management system with AI-powered insights, built with modern technologies and cutting-edge AI integration.
+A complete full-stack inventory management system with AI-powered insights, automated CI/CD pipeline, and cloud-native architecture on AWS.
 
-### **System Overview**
+## 🏗️ System Architecture
+
+### **Complete Cloud Infrastructure (AWS)**
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          AWS Cloud (us-east-1)                            │
+│                                                                           │
+│  ┌────────────────────────────────────────────────────────────────────┐ │
+│  │                    VPC (10.0.0.0/16)                                │ │
+│  │                                                                     │ │
+│  │  ┌──────────────────────────────────┐  ┌──────────────────────┐  │ │
+│  │  │   Public Subnet (10.0.1.0/24)    │  │ Private Subnet       │  │ │
+│  │  │                                   │  │ (10.0.2.0/24)        │  │ │
+│  │  │  ┌─────────────────────────────┐ │  │                      │  │ │
+│  │  │  │ Frontend EC2 (t2.micro)     │ │  │  ┌────────────────┐ │  │ │
+│  │  │  │ - Public IP: 3.94.146.75    │ │  │  │ Backend EC2    │ │  │ │
+│  │  │  │ - Private IP: 10.0.1.111    │ │  │  │ (t2.small)     │ │  │ │
+│  │  │  │ - Docker: Nginx + React     │◄┼──┼─►│ - Private IP:  │ │  │ │
+│  │  │  │ - Port 80 (HTTP)            │ │  │  │   10.0.2.214   │ │  │ │
+│  │  │  └─────────────────────────────┘ │  │  │ - Docker:      │ │  │ │
+│  │  │            ▲                      │  │  │   FastAPI +    │ │  │ │
+│  │  │            │                      │  │  │   PostgreSQL   │ │  │ │
+│  │  │            │ Internet Gateway     │  │  │ - Port 8000    │ │  │ │
+│  │  │            │                      │  │  │ - Port 5432    │ │  │ │
+│  │  │  ┌─────────────────────────────┐ │  │  └────────────────┘ │  │ │
+│  │  │  │ Jenkins Server (t2.medium)  │ │  │         ▲           │  │ │
+│  │  │  │ - Public IP: 54.82.33.47    │ │  │         │           │  │ │
+│  │  │  │ - Private IP: 10.0.1.x      │ │  │         │ SSH via   │  │ │
+│  │  │  │ - Jenkins: 8080             │ │  │         │ Frontend  │  │ │
+│  │  │  │ - Docker + Docker Compose   │◄┼──┼─────────┘           │  │ │
+│  │  │  └─────────────────────────────┘ │  │                      │  │ │
+│  │  │            ▲                      │  │                      │  │ │
+│  │  │            │                      │  │    NAT Gateway       │  │ │
+│  │  │            │ Webhook              │  │         ▲            │  │ │
+│  │  └────────────┼──────────────────────┘  └─────────┼───────────┘  │ │
+│  │               │                                    │              │ │
+│  └───────────────┼────────────────────────────────────┼──────────────┘ │
+│                  │                                    │                │
+│         Internet Gateway                      Outbound Internet        │
+└──────────────────┼────────────────────────────────────────────────────┘
+                   │
+                   │
+        ┌──────────▼──────────┐
+        │   GitHub Repository  │
+        │                     │
+        │  Smart-Inventory-   │
+        │     Tracking        │
+        └─────────────────────┘
+                   │
+                   │
+        ┌──────────▼──────────┐
+        │   Docker Hub        │
+        │                     │
+        │  - inventory-backend│
+        │  - inventory-frontend│
+        └─────────────────────┘
+```
+
+### **Application Stack Architecture**
+
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   React Frontend│    │   FastAPI Backend│    │   PostgreSQL DB │
@@ -23,21 +87,276 @@ A complete full-stack inventory management system with AI-powered insights, buil
                        └─────────────────┘
 ```
 
+***
+
+## 🌐 AWS Infrastructure Details
+
+### **VPC Configuration**
+- **CIDR Block:** 10.0.0.0/16
+- **Region:** us-east-1 (N. Virginia)
+- **Availability Zone:** us-east-1a
+
+### **Subnets**
+
+| Subnet Type | CIDR Block | Purpose | Components |
+|-------------|-----------|---------|------------|
+| **Public Subnet** | 10.0.1.0/24 | Internet-facing services | Frontend EC2, Jenkins EC2, NAT Gateway |
+| **Private Subnet** | 10.0.2.0/24 | Internal services | Backend EC2, PostgreSQL Database |
+
+### **Network Components**
+
+#### **Internet Gateway (IGW)**
+- Provides internet access to public subnet
+- Attached to VPC
+- Enables inbound/outbound internet traffic
+
+#### **NAT Gateway**
+- Deployed in public subnet
+- Enables outbound internet for private subnet
+- Required for backend to pull Docker images
+
+#### **Route Tables**
+
+**Public Route Table:**
+```
+Destination       Target
+10.0.0.0/16      local
+0.0.0.0/0        igw-xxxxx (Internet Gateway)
+```
+
+**Private Route Table:**
+```
+Destination       Target
+10.0.0.0/16      local
+0.0.0.0/0        nat-xxxxx (NAT Gateway)
+```
+
+### **Security Groups**
+
+#### **Frontend Security Group** (`inventory-frontend-sg`)
+
+| Type | Protocol | Port | Source | Purpose |
+|------|----------|------|--------|---------|
+| HTTP | TCP | 80 | 0.0.0.0/0 | Public web access |
+| SSH | TCP | 22 | My IP | Remote management |
+| All Traffic | All | All | 0.0.0.0/0 | Outbound |
+
+#### **Backend Security Group** (`inventory-backend-sg`)
+
+| Type | Protocol | Port | Source | Purpose |
+|------|----------|------|--------|---------|
+| Custom TCP | TCP | 8000 | 10.0.1.0/24 | API access from frontend |
+| Custom TCP | TCP | 5432 | 10.0.2.0/24 | PostgreSQL internal |
+| SSH | TCP | 22 | 10.0.1.0/24 | SSH from bastion |
+| ICMP | All | All | 10.0.1.0/24 | Network testing |
+| All Traffic | All | All | 0.0.0.0/0 | Outbound |
+
+#### **Jenkins Security Group** (`jenkins-sg`)
+
+| Type | Protocol | Port | Source | Purpose |
+|------|----------|------|--------|---------|
+| HTTP | TCP | 8080 | 0.0.0.0/0 | Jenkins Web UI |
+| SSH | TCP | 22 | My IP | Server management |
+| All Traffic | All | All | 0.0.0.0/0 | Outbound |
+
+### **EC2 Instances**
+
+#### **Frontend Server**
+- **Type:** t2.micro (1 vCPU, 1GB RAM)
+- **AMI:** Ubuntu 22.04 LTS
+- **Public IP:** 3.94.146.75
+- **Private IP:** 10.0.1.111
+- **Docker Containers:**
+  - Nginx + React Production Build
+  - Port mapping: 80:80
+
+#### **Backend Server**
+- **Type:** t2.small (1 vCPU, 2GB RAM)
+- **AMI:** Ubuntu 22.04 LTS
+- **Public IP:** None (Private subnet)
+- **Private IP:** 10.0.2.214
+- **Docker Containers:**
+  - FastAPI Application (Port 8000)
+  - PostgreSQL Database (Port 5432)
+
+#### **Jenkins Server**
+- **Type:** t2.medium (2 vCPU, 4GB RAM)
+- **AMI:** Ubuntu 22.04 LTS
+- **Public IP:** 54.82.33.47
+- **Private IP:** 10.0.1.x
+- **Services:**
+  - Jenkins (Port 8080)
+  - Docker Engine
+  - Docker Compose
+
+---
+
+## 🔄 CI/CD Pipeline with Jenkins
+
+### **Pipeline Overview**
+
+```
+Developer Push to GitHub
+        ↓
+GitHub Webhook Trigger
+        ↓
+Jenkins Server (EC2)
+        ↓
+┌───────────────────────────────────┐
+│   Jenkins Pipeline Stages         │
+│                                   │
+│  1. Checkout Code from GitHub    │
+│  2. Build Backend Docker Image   │
+│  3. Build Frontend Docker Image  │
+│  4. Run Tests                    │
+│  5. Push Images to Docker Hub    │
+│  6. Deploy Backend to EC2        │
+│  7. Deploy Frontend to EC2       │
+│  8. Health Check                 │
+└───────────────────────────────────┘
+        ↓
+Application Updated Automatically! ✅
+```
+
+### **Jenkins Configuration**
+
+**Installation:** Direct installation on Ubuntu EC2
+**Access:** http://54.82.33.47:8080
+**Pipeline Type:** Declarative Pipeline (Jenkinsfile)
+
+### **Pipeline Stages**
+
+#### **Stage 1: Checkout**
+```groovy
+- Clone repository from GitHub
+- Branch: main
+- Commit SHA tracked
+```
+
+#### **Stage 2: Build Images**
+```groovy
+- Build backend: adithyakanneti0504/inventory-backend:latest
+- Build frontend: adithyakanneti0504/inventory-frontend:latest-2
+- Platform: linux/amd64 (EC2 compatible)
+- Multi-stage builds for optimization
+```
+
+#### **Stage 3: Run Tests**
+```groovy
+- Unit tests (pytest)
+- Integration tests
+- Code coverage reports
+```
+
+#### **Stage 4: Push to Registry**
+```groovy
+- Docker Hub authentication
+- Push latest tags
+- Push build-specific tags (build-N)
+```
+
+#### **Stage 5: Deploy**
+```groovy
+- SSH to EC2 instances via bastion
+- Pull latest images from Docker Hub
+- Recreate containers with new images
+- Verify health checks
+```
+
+### **GitHub Webhook Integration**
+
+**Webhook URL:** `http://54.82.33.47:8080/github-webhook/`
+
+**Trigger:** Push events to main branch
+
+**Process:**
+1. Developer pushes code to GitHub
+2. GitHub sends webhook payload to Jenkins
+3. Jenkins matches repository URL
+4. Pipeline executes automatically
+5. Build status reported back to GitHub
+
+### **Docker Image Registry**
+
+**Docker Hub Repository:**
+- `adithyakanneti0504/inventory-backend:latest`
+- `adithyakanneti0504/inventory-frontend:latest-2`
+
+**Tagging Strategy:**
+- `latest` - Most recent production build
+- `build-N` - Specific build number for rollbacks
+
+***
+
+## 📊 Network Flow Diagrams
+
+### **User Request Flow**
+
+```
+User Browser (http://3.94.146.75)
+        ↓
+Internet
+        ↓
+AWS Internet Gateway
+        ↓
+Frontend EC2 (Public Subnet)
+        ↓
+Nginx Container (Port 80)
+        ↓
+├─ "/" → React Static Files
+└─ "/api/*" → Proxy to Backend
+        ↓
+Private Subnet (10.0.2.214:8000)
+        ↓
+Backend EC2 (FastAPI Container)
+        ↓
+PostgreSQL Container (Port 5432)
+```
+
+### **CI/CD Deployment Flow**
+
+```
+GitHub Repository
+        ↓ (webhook)
+Jenkins Server (Public Subnet)
+        ↓ (SSH)
+Frontend EC2 (10.0.1.111)
+        ↓ (docker compose pull)
+Docker Hub
+        ↓ (docker compose up)
+Updated Frontend Container
+        ↓ (SSH via bastion)
+Backend EC2 (10.0.2.214)
+        ↓ (docker compose pull)
+Docker Hub
+        ↓ (docker compose up)
+Updated Backend + Database
+```
+
+***
+
 ## Prerequisites
 
-### **Backend Requirements**
+### **Development Requirements**
 - Python 3.10+
-- [uv](https://github.com/astral-sh/uv) package manager (recommended) or pip
+- Node.js 18+
 - Docker and Docker Compose
-- PostgreSQL client (optional, for direct database access)
+- Git
 
-### **Frontend Requirements**
-- Node.js 18+ and npm/pnpm
-- Modern web browser with ES6+ support
+### **AWS Requirements**
+- AWS Account
+- EC2 instances (Frontend, Backend, Jenkins)
+- VPC with public/private subnets
+- Security groups configured
+- SSH key pair (sivera-pem.pem)
 
-### **AI Requirements**
-- Cerebras API key (for AI chat functionality)
-- Internet connection for AI inference
+### **CI/CD Requirements**
+- Jenkins server installed
+- GitHub account and repository
+- Docker Hub account
+- Cerebras API key (for AI features)
+
+***
 
 ## 📁 Project Structure
 
@@ -45,6 +364,8 @@ A complete full-stack inventory management system with AI-powered insights, buil
 Smart-Inventory-Tracking/
 ├── backend/                          # Backend FastAPI application
 │   ├── main.py                       # FastAPI application entry point
+│   ├── Dockerfile                    # Backend container definition
+│   ├── docker-compose.yml            # Backend services orchestration
 │   ├── src/
 │   │   ├── db/
 │   │   │   ├── db_manager.py         # Database manager with connection pooling
@@ -69,11 +390,14 @@ Smart-Inventory-Tracking/
 │   ├── tests/
 │   │   ├── test_products.py          # Product service unit tests
 │   │   └── test_analytics.py         # Analytics service unit tests
-│   ├── pyproject.toml                # Backend dependencies (uv/pip)
+│   ├── pyproject.toml                # Backend dependencies
 │   ├── .env                          # Environment variables
 │   └── uv.lock                       # Dependency lock file
 │
 ├── frontend/                         # React frontend application
+│   ├── Dockerfile                    # Frontend container definition
+│   ├── docker-compose.yml            # Frontend service orchestration
+│   ├── nginx.conf                    # Nginx reverse proxy configuration
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── ai/
@@ -106,400 +430,174 @@ Smart-Inventory-Tracking/
 │   ├── tailwind.config.js             # Tailwind CSS configuration
 │   └── index.html                     # HTML template
 │
-├── docker-compose.yml                 # PostgreSQL container configuration
-├── RUN-BOTH.sh                       # Script to run both frontend and backend
-├── FINAL-README.md                   # Comprehensive documentation
+├── Jenkinsfile                        # CI/CD pipeline definition
+├── docker-compose.yml                 # Local development setup
+├── RUN-BOTH.sh                       # Script to run both services locally
+├── DEPLOYMENT.md                     # AWS deployment documentation
 └── README.md                         # This file
 ```
 
-## Setup Instructions
+***
 
-### 1. Configure Environment Variables
+## 🚀 Deployment Architecture
 
-Copy the example environment file and customize as needed:
+### **Production Deployment**
+
+**Frontend (Public Subnet):**
+```yaml
+EC2: 3.94.146.75 (t2.micro)
+├── Docker Container: inventory_frontend
+│   ├── Nginx (Port 80)
+│   ├── React Production Build
+│   └── Reverse Proxy to Backend
+└── docker-compose.yml
+```
+
+**Backend (Private Subnet):**
+```yaml
+EC2: 10.0.2.214 (t2.small)
+├── Docker Container: inventory_backend
+│   ├── FastAPI (Port 8000)
+│   ├── LangChain AI Agent
+│   └── Cerebras LLM Integration
+└── Docker Container: inventory_postgres
+    ├── PostgreSQL 15 (Port 5432)
+    ├── Persistent Volume
+    └── Automated Migrations
+```
+
+**Jenkins (Public Subnet):**
+```yaml
+EC2: 54.82.33.47 (t2.medium)
+├── Jenkins Server (Port 8080)
+├── Docker Engine
+├── Pipeline Jobs
+└── GitHub Webhook Integration
+```
+
+### **Security Best Practices**
+
+1. **Network Isolation:**
+   - Backend has NO public IP
+   - Database only accessible within private subnet
+   - SSH access via bastion host pattern
+
+2. **API Security:**
+   - Backend only accessible from frontend subnet
+   - CORS configured for frontend domain
+   - Nginx reverse proxy hides backend
+
+3. **Secrets Management:**
+   - Environment variables in `.env` files
+   - Docker Hub credentials in Jenkins
+   - SSH keys for EC2 access
+   - API keys for Cerebras AI
+
+***
+
+## 🔧 Local Development Setup
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/adiabb05-1317/Smart-Inventory-Tracking.git
+cd Smart-Inventory-Tracking
+```
+
+### 2. Configure Environment
 
 ```bash
 cp .env.example .env
+# Edit .env with your configuration
 ```
 
-Edit `.env` with your preferred configuration:
-
-```bash
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=inventory_db
-DB_USER=kubo_user
-DB_PASSWORD=password
-DB_MIN_CONNECTIONS=2
-DB_MAX_CONNECTIONS=10
-
-# API Configuration
-API_HOST=0.0.0.0
-API_PORT=8000
-API_RELOAD=true
-
-# Cache Configuration (TTL in seconds)
-CACHE_TTL_SECONDS=300
-
-# CORS Configuration (comma-separated origins, or * for all)
-CORS_ALLOW_ORIGINS=*
-```
-
-**Note:** The `.env` file is git-ignored for security. Never commit credentials to version control.
-
-### 2. Start PostgreSQL Database
+### 3. Start PostgreSQL
 
 ```bash
 docker-compose up -d
 ```
 
-This will start a PostgreSQL container with:
-- Username: `kubo_user` (default, customizable via `DB_USER` in `.env`)
-- Password: `password` (default, customizable via `DB_PASSWORD` in `.env`)
-- Database: `inventory_db` (default, customizable via `DB_NAME` in `.env`)
-- Port: `5432`
-
-**Note:** The default credentials work for everyone running this project locally. Docker Compose creates an isolated containerized PostgreSQL instance, so these credentials are not tied to your system's PostgreSQL installation (if any). Users can customize these values by setting `DB_USER`, `DB_PASSWORD`, and `DB_NAME` in their `.env` file before running `docker-compose up`.
-
-### 3. Run Database Migrations
-
-Option 1 - Using the provided script:
+### 4. Run Migrations
 
 ```bash
 ./run_migrations.sh
 ```
 
-Option 2 - Manual execution:
+### 5. Start Backend
 
 ```bash
-docker exec -i inventory_db psql -U kubo_user -d inventory_db < src/db/migrations.sql
-```
-
-### 4. Install Dependencies
-
-Using uv package manager:
-
-```bash
+cd backend
 uv pip install -e .
-```
-
-Or using pip:
-
-```bash
-pip install -e .
-```
-
-### 5. Run the Application
-
-```bash
 python main.py
 ```
 
-Or using uvicorn directly:
+### 6. Start Frontend
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+cd frontend
+pnpm install
+pnpm dev
 ```
 
-The API will be available at: `http://localhost:8000`
+**Local URLs:**
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
 
-## API Documentation
+***
 
-Once the application is running, visit:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+## 🌐 Production URLs
 
-## API Endpoints
+- **Application:** http://3.94.146.75
+- **API Health:** http://3.94.146.75/health
+- **API Docs:** http://3.94.146.75/docs
+- **Jenkins:** http://54.82.33.47:8080
 
-### Root & Health
+---
 
-- `GET /` - API information
-- `GET /health` - Health check
+## 📊 Monitoring & Maintenance
 
-### Products
-
-- `GET /products` - Get all products with filtering and sorting
-  - Query params: `category`, `price_min`, `price_max`, `in_stock`, `sort_by`, `order`
-- `GET /products/low-stock` - Get products below reorder level
-- `GET /products/{id}` - Get a specific product
-- `POST /products` - Create a new product
-- `PUT /products/{id}` - Update a product
-- `DELETE /products/{id}` - Delete a product
-- `POST /products/{id}/restock` - Add stock to a product
-- `POST /products/bulk-upload` - Bulk upload multiple products
-- `PUT /products/bulk-restock` - Bulk restock multiple products
-- `POST /products/sales` - Record a sales transaction
-
-### Analytics
-
-- `GET /analytics/sales-trends?period=7d` - Get sales trends (7d, 30d, 90d)
-- `GET /analytics/demand-forecast/{id}` - Forecast demand for a product
-- `GET /analytics/inventory-turnover?category=X` - Calculate turnover ratio
-- `GET /analytics/top-performers?limit=5` - Get top products by revenue
-- `GET /analytics/restock-urgency` - Get prioritized restock recommendations
-
-## 🤖 AI Assistant (Schema + Single SQL Tool)
-
-The AI chat now uses a single tool: `sql_executor`. The LLM sees the database schema in the prompt and generates read‑only SQL to answer any question. This keeps responses natural and fast while remaining safe (SELECT‑only).
-
-Available tables:
-- `products (id, name, category, price, stock_quantity, reorder_level, supplier, warranty_months, last_restocked, created_at, updated_at)`
-- `sales_history (id, product_id, quantity_sold, sale_price, sale_date, created_at)`
-
-How it works:
-- LLM reasons (ReAct) → decides to use `sql_executor` → generates SQL → tool executes query via pooled DB connection → LLM summarizes results.
-- Only SELECT statements are allowed; mutating SQL is rejected for safety.
-
-Example questions the AI can answer:
-- “Top 5 best‑selling products in the last 30 days?”
-- “Daily revenue for the last 7 days.”
-- “Low‑stock items and their reorder thresholds.”
-- “Products in ‘Smartphones’ under $900.”
-
-Example queries the tool may run:
-```sql
--- Top performers
-SELECT p.name, SUM(s.quantity_sold) AS units_sold, SUM(s.sale_price * s.quantity_sold) AS revenue
-FROM products p
-JOIN sales_history s ON p.id = s.product_id
-GROUP BY p.id, p.name
-ORDER BY units_sold DESC
-LIMIT 5;
-
--- Daily revenue (last 7 days)
-SELECT DATE(sale_date) AS day, SUM(quantity_sold * sale_price) AS revenue
-FROM sales_history
-WHERE sale_date >= CURRENT_DATE - INTERVAL '7 days'
-GROUP BY DATE(sale_date)
-ORDER BY day DESC;
-
--- Low stock
-SELECT name, stock_quantity, reorder_level
-FROM products
-WHERE stock_quantity < reorder_level
-ORDER BY stock_quantity ASC;
-```
-
-Setup notes:
-- Set `CEREBRAS_API_KEY` in `.env` for the AI chat.
-- Start PostgreSQL via Docker Compose, run migrations, then start the backend and frontend.
-
-## Example API Calls
-
-### Product Operations
-
-#### Get All Products with Filtering
+### **Health Checks**
 
 ```bash
-curl -X GET "http://localhost:8000/products?category=Smartphones&price_max=1000&sort_by=price&order=asc"
+# Frontend health
+curl http://3.94.146.75/health
+
+# Backend health  
+curl http://3.94.146.75/api/health
+
+# Database connection
+ssh ubuntu@3.94.146.75
+ssh ubuntu@10.0.2.214
+docker exec -it inventory_postgres psql -U kubo_user -d inventory_db
 ```
 
-#### Get Low Stock Products
+### **View Logs**
 
 ```bash
-curl -X GET "http://localhost:8000/products/low-stock"
+# Frontend logs
+ssh ubuntu@3.94.146.75
+cd ~/inventory-frontend
+docker compose logs -f
+
+# Backend logs
+ssh ubuntu@10.0.2.214
+cd ~/inventory-backend
+docker compose logs -f backend
+
+# Database logs
+docker compose logs -f postgres
 ```
 
-#### Create New Product
+### **Jenkins Pipeline Monitoring**
 
-```bash
-curl -X POST "http://localhost:8000/products" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "AirPods Pro 2",
-    "category": "Audio",
-    "price": 249.99,
-    "stock_quantity": 35,
-    "reorder_level": 20,
-    "supplier": "Apple Inc.",
-    "warranty_months": 12
-  }'
-```
+- Build history: http://54.82.33.47:8080/job/Smart-Inventory-CICD/
+- Console output: Click on build number → Console Output
+- Webhook deliveries: GitHub → Settings → Webhooks
 
-#### Update Product
+***
 
-```bash
-curl -X PUT "http://localhost:8000/products/1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "price": 899.99,
-    "stock_quantity": 55
-  }'
-```
-
-#### Bulk Upload Products
-
-```bash
-curl -X POST "http://localhost:8000/products/bulk-upload" \
-  -H "Content-Type: application/json" \
-  -d '[
-    {
-      "name": "Google Pixel 8",
-      "category": "Smartphones",
-      "price": 699.99,
-      "stock_quantity": 25,
-      "reorder_level": 15,
-      "supplier": "Google LLC",
-      "warranty_months": 24
-    },
-    {
-      "name": "Dell XPS 15",
-      "category": "Laptops",
-      "price": 1899.99,
-      "stock_quantity": 10,
-      "reorder_level": 5,
-      "supplier": "Dell Technologies",
-      "warranty_months": 12
-    }
-  ]'
-```
-
-#### Bulk Restock Products
-
-```bash
-curl -X PUT "http://localhost:8000/products/bulk-restock" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "items": [
-      {"product_id": 1, "quantity": 50},
-      {"product_id": 2, "quantity": 30},
-      {"product_id": 3, "quantity": 20}
-    ]
-  }'
-```
-
-#### Record a Sale
-
-```bash
-curl -X POST "http://localhost:8000/products/sales" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "product_id": 1,
-    "quantity_sold": 5,
-    "sale_price": 999.99
-  }'
-```
-
-### Analytics Operations
-
-#### Get Sales Trends
-
-```bash
-# 7-day trends
-curl -X GET "http://localhost:8000/analytics/sales-trends?period=7d"
-
-# 30-day trends
-curl -X GET "http://localhost:8000/analytics/sales-trends?period=30d"
-```
-
-#### Get Demand Forecast
-
-```bash
-curl -X GET "http://localhost:8000/analytics/demand-forecast/1"
-```
-
-#### Get Inventory Turnover
-
-```bash
-# All categories
-curl -X GET "http://localhost:8000/analytics/inventory-turnover"
-
-# Specific category
-curl -X GET "http://localhost:8000/analytics/inventory-turnover?category=Smartphones"
-```
-
-#### Get Top Performers
-
-```bash
-curl -X GET "http://localhost:8000/analytics/top-performers?limit=10"
-```
-
-#### Get Restock Urgency
-
-```bash
-curl -X GET "http://localhost:8000/analytics/restock-urgency"
-```
-
-## Database Schema
-
-### Products Table
-
-| Column          | Type         | Description                        |
-|----------------|--------------|-------------------------------------|
-| id             | SERIAL       | Primary key                         |
-| name           | VARCHAR(255) | Product name                        |
-| category       | VARCHAR(100) | Product category                    |
-| price          | DECIMAL      | Product price (>= 0)                |
-| stock_quantity | INTEGER      | Current stock quantity (>= 0)       |
-| reorder_level  | INTEGER      | Minimum stock before reorder (>= 0) |
-| supplier       | VARCHAR(100) | Supplier name                       |
-| warranty_months| INTEGER      | Warranty period in months           |
-| last_restocked | TIMESTAMP    | Last restock timestamp              |
-| created_at     | TIMESTAMP    | Creation timestamp                  |
-| updated_at     | TIMESTAMP    | Last update timestamp               |
-
-### Sales History Table
-
-| Column        | Type      | Description                    |
-|--------------|-----------|--------------------------------|
-| id           | SERIAL    | Primary key                    |
-| product_id   | INTEGER   | Foreign key to products        |
-| quantity_sold| INTEGER   | Quantity sold (> 0)            |
-| sale_price   | DECIMAL   | Price per unit at sale time    |
-| sale_date    | TIMESTAMP | When the sale occurred         |
-| created_at   | TIMESTAMP | Record creation timestamp      |
-
-### Indexes
-
-**Products:**
-- `idx_products_name` on `name`
-- `idx_products_category` on `category`
-- `idx_products_stock_quantity` on `stock_quantity`
-- `idx_products_price` on `price`
-
-**Sales History:**
-- `idx_sales_product_id` on `product_id`
-- `idx_sales_date` on `sale_date`
-
-## Business Logic & Forecasting
-
-### Demand Forecasting Formula
-
-The system uses a **7-day moving average** for demand forecasting:
-
-```
-avg_daily_sales = total_sales_last_7_days / 7
-estimated_days_until_stockout = current_stock / avg_daily_sales
-recommended_reorder_quantity = max((14 * avg_daily_sales) - current_stock, reorder_level)
-```
-
-**Strategy**: Maintain 14 days of inventory based on recent sales patterns.
-
-### Inventory Turnover Calculation
-
-```
-turnover_ratio = total_units_sold_30d / current_stock_quantity
-```
-
-**Interpretation:**
-- `turnover_ratio > 1.0`: Fast-moving product
-- `turnover_ratio < 1.0`: Slow-moving product (flags for review)
-
-### Restock Urgency Scoring
-
-```
-urgency_score = (reorder_level - current_stock) / avg_daily_sales
-```
-
-**Action Levels:**
-- **CRITICAL**: Out of stock OR < 2 days until stockout
-- **HIGH**: Stock < 50% of reorder level OR < 5 days until stockout
-- **MEDIUM**: Below reorder level but not critical
-
-## Testing
-
-### Run Unit Tests
+## 🧪 Testing
 
 ```bash
 # Run all tests
@@ -508,201 +606,15 @@ pytest tests/ -v
 # Run with coverage
 pytest tests/ -v --cov=src --cov-report=html
 
-# Run specific test file
+# Run specific tests
 pytest tests/test_products.py -v
-
-# Run specific test
-pytest tests/test_analytics.py::test_demand_forecast_accuracy -v
+pytest tests/test_analytics.py -v
 ```
 
-### Test Coverage
+***
 
-The test suite includes:
-- **Product Service Tests**: CRUD operations, bulk operations, sales recording
-- **Analytics Service Tests**: Sales trends, forecasting, turnover, urgency scoring
-- **Edge Cases**: Insufficient stock, non-existent products, zero sales scenarios
+## 📚 API Documentation
 
-## Development
-
-### Install PostgreSQL Client (Optional)
-
-If you want to connect directly to the database without using Docker exec:
-
-**Using Homebrew (macOS):**
-
-```bash
-brew install postgresql@15
-```
-
-After installation, add to your PATH (add to ~/.zshrc or ~/.bash_profile):
-
-```bash
-export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"
-```
-
-Then reload your shell:
-
-```bash
-source ~/.zshrc  # or source ~/.bash_profile
-```
-
-Verify installation:
-
-```bash
-psql --version
-```
-
-### Connect to Database
-
-**Option 1 - Using Docker exec (no psql installation needed):**
-
-```bash
-docker exec -it inventory_db psql -U kubo_user -d inventory_db
-```
-
-**Option 2 - Direct connection (requires psql client):**
-
-```bash
-psql -h localhost -p 5432 -U kubo_user -d inventory_db
-```
-
-When prompted, enter password: `password`
-
-Or with password in command (less secure):
-
-```bash
-PGPASSWORD=password psql -h localhost -p 5432 -U kubo_user -d inventory_db
-```
-
-### Useful Database Commands
-
-Once connected to the database via psql:
-
-```sql
--- List all databases
-\l
-
--- List all tables in current database
-\dt
-
--- Describe products table structure
-\d products
-
--- View all table indexes
-\di
-
--- View table with row counts
-SELECT 
-    schemaname,
-    tablename,
-    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size,
-    pg_stat_get_live_tuples(c.oid) AS row_count
-FROM pg_tables t
-JOIN pg_class c ON t.tablename = c.relname
-WHERE schemaname = 'public';
-
--- Select all products
-SELECT * FROM products;
-
--- Count products
-SELECT COUNT(*) FROM products;
-
--- Find low stock products
-SELECT name, stock_quantity, reorder_level 
-FROM products 
-WHERE stock_quantity < reorder_level;
-
--- Products by category
-SELECT category, COUNT(*) as count, SUM(stock_quantity) as total_stock
-FROM products 
-GROUP BY category;
-
--- Exit psql
-\q
-```
-
-### Quick Database Queries (One-liners)
-
-```bash
-# View all products
-docker exec -it inventory_db psql -U kubo_user -d inventory_db -c "SELECT * FROM products;"
-
-# Count total products
-docker exec -it inventory_db psql -U kubo_user -d inventory_db -c "SELECT COUNT(*) FROM products;"
-
-# Check low stock items
-docker exec -it inventory_db psql -U kubo_user -d inventory_db -c "SELECT name, stock_quantity, reorder_level FROM products WHERE stock_quantity < reorder_level;"
-```
-
-### View Database Logs
-
-```bash
-docker logs inventory_db
-```
-
-### Stop Database
-
-```bash
-docker-compose down
-```
-
-### Stop Database and Remove Data
-
-```bash
-docker-compose down -v
-```
-
-## Technologies Used
-
-- **FastAPI** - Modern web framework for building APIs
-- **PostgreSQL** - Relational database
-- **psycopg2** - PostgreSQL adapter for Python with connection pooling
-- **Pydantic** - Data validation using Python type hints
-- **aiohttp** - Asynchronous HTTP client/server
-- **uvicorn** - ASGI server implementation
-- **pytest** - Testing framework with coverage support
-
-## Architecture
-
-### Project Structure
-
-```
-Smart-Inventory-Tracking/
-├── main.py                          # FastAPI app with lifespan management
-├── .env.example                     # Environment variables template
-├── src/
-│   ├── db/
-│   │   ├── db_manager.py           # Connection pooling & database operations
-│   │   └── migrations.sql          # Schema definitions & sample data
-│   ├── models/
-│   │   ├── product.py              # Product Pydantic models
-│   │   ├── sale.py                 # Sales Pydantic models
-│   │   └── restock.py              # Restock Pydantic models
-│   ├── services/
-│   │   ├── product_service.py      # Product business logic
-│   │   ├── analytics_service.py    # Analytics & forecasting logic
-│   │   └── cache_service.py        # In-memory caching service
-│   └── routers/
-│       ├── products.py             # Product API endpoints
-│       └── analytics.py            # Analytics API endpoints
-├── tests/
-│   ├── test_products.py            # Product service unit tests
-│   └── test_analytics.py           # Analytics service unit tests
-├── docker-compose.yml              # PostgreSQL container config
-├── pyproject.toml                  # Dependencies (uv/pip)
-└── README.md
-```
-
-### Design Principles
-
-1. **Separation of Concerns**: Business logic in services, API routing separate
-2. **Connection Pooling**: Efficient database connection management
-3. **Caching Strategy**: 5-minute TTL for analytics, cleared on sales
-4. **Validation**: Pydantic models for request/response validation
-5. **Error Handling**: Proper HTTP status codes and error messages
-6. **Testing**: Comprehensive unit tests with mocked dependencies
-
-## License
-
-MIT
-
+Full API documentation available at:
+- **Swagger UI:** http://3.94.146.75/docs
+- **ReDoc:** http://3.94.146.75/redoc
