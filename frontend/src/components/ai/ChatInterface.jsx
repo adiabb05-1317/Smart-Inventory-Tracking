@@ -69,11 +69,6 @@ export const ChatInterface = () => {
               }`}
             >
               <p className="whitespace-pre-wrap">{msg.content}</p>
-              {msg.tools_used && msg.tools_used.length > 0 && (
-                <div className="mt-2 text-xs opacity-75">
-                  Tools used: {msg.tools_used.join(', ')}
-                </div>
-              )}
             </div>
           </div>
         ))}

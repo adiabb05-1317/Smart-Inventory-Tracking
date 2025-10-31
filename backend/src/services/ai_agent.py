@@ -26,7 +26,7 @@ class InventoryAgent:
         self.db_manager = db_manager
         
         self.llm = ChatCerebras(
-            model="llama3.1-8b",
+            model="gpt-oss-120b",
             api_key=cerebras_api_key,
             temperature=0,
             max_tokens=500
