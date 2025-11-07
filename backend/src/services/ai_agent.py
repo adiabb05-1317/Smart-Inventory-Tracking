@@ -2,6 +2,7 @@ import os
 from langchain_cerebras import ChatCerebras
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.prompts import PromptTemplate
+from langchain_core.exceptions import OutputParserException
 from langchain import hub
 from dotenv import load_dotenv
 from .ai_tools.sql_executor_tool import SQLExecutorTool
@@ -114,6 +115,37 @@ Question: {input}
             return_intermediate_steps=True
         )
     
+    def _extract_last_valid_observation(self, steps):
+        """Pick the most useful observation from intermediate steps."""
+        if not steps:
+            return None
+
+        error_markers = (
+            "check your output",
+            "could not parse llm output",
+            "parsing error",
+            "invalid format",
+        )
+
+        for step in reversed(steps):
+            if not isinstance(step, (tuple, list)) or len(step) < 2:
+                continue
+            observation = step[1]
+            if not observation:
+                continue
+
+            obs_text = str(observation).strip()
+            if not obs_text:
+                continue
+
+            lower = obs_text.lower()
+            if any(marker in lower for marker in error_markers):
+                continue
+
+            return obs_text
+
+        return None
+
     def chat(self, message: str):
         """Process user message and return AI response"""
         try:
@@ -133,17 +165,17 @@ Question: {input}
                 except Exception:
                     pass
 
+            last_valid_observation = self._extract_last_valid_observation(steps)
+
             # If output indicates a stop or parsing issue, try to recover from last observation
             if output:
                 lower = output.lower()
                 if ("agent stopped" in lower) or ("parsing" in lower) or ("invalid format" in lower):
-                    if steps:
-                        last_obs = steps[-1][1] if len(steps[-1]) > 1 else ""
-                        if last_obs:
-                            return {
-                                "output": f"Based on the data: {last_obs}",
-                                "intermediate_steps": tools_used
-                            }
+                    if last_valid_observation:
+                        return {
+                            "output": f"Based on the data: {last_valid_observation}",
+                            "intermediate_steps": tools_used
+                        }
 
                 return {
                     "output": output,
@@ -151,8 +183,28 @@ Question: {input}
                 }
 
             # Fallback if no output
+            if last_valid_observation:
+                return {
+                    "output": f"Based on the data: {last_valid_observation}",
+                    "intermediate_steps": tools_used
+                }
+
             return {
                 "output": "I couldn't process that question. Try asking:\n- 'What items are low in stock?'\n- 'How many products do we have?'\n- 'What are the top selling products?'",
+                "intermediate_steps": []
+            }
+        except OutputParserException as e:
+            observation = getattr(e, "observation", None)
+            if observation:
+                obs_text = str(observation).strip()
+                if obs_text:
+                    return {
+                        "output": f"Based on the data: {obs_text}",
+                        "intermediate_steps": []
+                    }
+
+            return {
+                "output": "I had trouble interpreting the response, but no tools reported an error. Please try rephrasing your question.",
                 "intermediate_steps": []
             }
         except Exception as e:

@@ -26,10 +26,40 @@ class SQLExecutorTool(BaseTool):
     
     db_manager: Optional[Any] = None
     
+    def _clean_query(self, query: str) -> str:
+        if not query:
+            return ""
+
+        cleaned = query.strip()
+
+        # Remove any agent markup that might have been concatenated
+        markers = [
+            "Observation:",
+            "Observation",
+            "Thought:",
+            "Action:",
+            "Action Input:",
+            "Final Answer:"
+        ]
+
+        for marker in markers:
+            idx = cleaned.find(marker)
+            if idx != -1:
+                cleaned = cleaned[:idx].strip()
+
+        # Strip trailing backticks or stray quotes
+        cleaned = cleaned.strip("`\"")
+
+        return cleaned
+
     def _run(self, query: str) -> str:
+        cleaned_query = self._clean_query(query)
+        if not cleaned_query:
+            return "Error: No valid SQL query provided."
+
         try:
             # Security: Only allow SELECT queries
-            query_upper = query.strip().upper()
+            query_upper = cleaned_query.upper()
             if not query_upper.startswith('SELECT'):
                 return "Error: Only SELECT queries are allowed for security reasons."
             
@@ -39,7 +69,7 @@ class SQLExecutorTool(BaseTool):
                 return "Error: Query contains forbidden operations."
             
             # Execute query
-            results = self.db_manager.fetch_all(query)
+            results = self.db_manager.fetch_all(cleaned_query)
             
             if not results:
                 return "No results found."

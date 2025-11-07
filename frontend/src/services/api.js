@@ -8,7 +8,7 @@ function buildUrl(endpoint) {
   const clean = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   if (!VITE_BACKEND_URL) {
     // Production behind Nginx: use relative /api
-    return endpoint.startsWith('/api') ? endpoint : `${VITE_API_PREFIX}/${clean}`;
+    return endpoint.startsWith('/') ? endpoint : `${VITE_API_PREFIX}/${clean}`;
   }
   // Dev: explicit backend URL
   return `${VITE_BACKEND_URL}/${clean}`;
